@@ -8,6 +8,7 @@ import { PetDrawer } from './components/PetDrawer';
 import { ReportForm } from './components/ReportForm';
 import { ChatDrawer } from './components/ChatDrawer';
 import { LoginModal } from './components/LoginModal';
+import { HAS_FIREBASE } from './services/firebase';
 import type { AnimalType, Pet, PetStatus } from './types';
 
 function Shell() {
@@ -124,6 +125,39 @@ function Shell() {
       />
 
       <main className="relative flex-1">
+        {/* Banner persistente si Firebase no está conectado */}
+        {!HAS_FIREBASE && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[60] flex justify-center px-3">
+            <div className="pointer-events-auto flex max-w-md items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-lg ring-1 ring-amber-300">
+              ⚠️ Firebase no configurado — datos solo locales (no se ven entre usuarios).
+              <code className="rounded bg-amber-600/40 px-1.5">.env.local</code>
+            </div>
+          </div>
+        )}
+
+        {/* Mini badge del estado de Firebase en esquina inferior derecha */}
+        <div
+          className={
+            'absolute bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur ' +
+            (HAS_FIREBASE
+              ? 'bg-emerald-100/90 text-emerald-700 ring-1 ring-emerald-300'
+              : 'bg-slate-200/90 text-slate-600 ring-1 ring-slate-300')
+          }
+          title={
+            HAS_FIREBASE
+              ? 'Conectado a Firestore — los datos se comparten en tiempo real'
+              : 'Sin Firestore — datos solo en tu browser'
+          }
+        >
+          <span
+            className={
+              'inline-block h-2 w-2 rounded-full ' +
+              (HAS_FIREBASE ? 'bg-emerald-500' : 'bg-slate-500')
+            }
+          />
+          {HAS_FIREBASE ? 'Firestore' : 'Solo local'}
+        </div>
+
         <MapView
           pets={pets}
           statusFilter={statusFilter}

@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [fbUser, setFbUser] = useState<User | null>(null);
 
-  // Suscribirse a Firebase Auth cuando esté disponible
+  // Suscribirse a Firebase Auth cuando esté disponible.
   useEffect(() => {
     if (!HAS_FIREBASE || !fbAuth) return;
     const unsub = onAuthStateChanged(fbAuth, (u) => {
@@ -68,11 +68,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (HAS_FIREBASE && fbAuth && fbProvider) {
       setIsLoading(true);
       try {
+        // signInWithPopup es lo más prolijo UX, pero requiere COOP desactivado en Vercel.
+        // Si tu hosting es Firebase Hosting o tenés COOP desactivado en vercel.json, anda perfecto.
         await signInWithPopup(fbAuth, fbProvider);
       } catch (err: any) {
-        // popup cerrado por el usuario no es error grave
-        if (err?.code !== 'auth/popup-closed-by-user') {
-          console.error('Firebase login error:', err);
+        // Logs detallados para diagnosticar cualquier fallo
+        console.error('[Firebase login] code:', err?.code, 'msg:', err?.message);
+        if (err?.code === 'auth/popup-closed-by-user') return;
+        if (err?.code === 'auth/popup-blocked') {
+          alert('Tu navegador bloqueó el popup. Habilitá popups para este sitio y volvé a intentar.');
+          return;
+        }
+        if (err?.code === 'auth/unauthorized-domain') {
+          alert('Dominio no autorizado. Agregá este dominio a Firebase Auth → Authorized domains.');
+          return;
+        }
+        if (err?.code === 'auth/operation-not-allowed') {
+          alert('Login con Google no está habilitado en Firebase Console → Authentication → Sign-in method.');
+          return;
         }
       } finally {
         setIsLoading(false);
