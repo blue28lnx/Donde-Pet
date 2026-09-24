@@ -79,6 +79,15 @@ function petFromDoc(id: string, data: any): Pet {
   };
 }
 
+/**
+ * Firestore rechaza `undefined`. Devuelve una copia sin esos campos.
+ */
+function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  ) as Partial<T>;
+}
+
 export function PetsProvider({ children }: { children: ReactNode }) {
   // ---- Estado ----
   const [pets, setPets] = useState<Pet[]>([]);
@@ -120,7 +129,12 @@ export function PetsProvider({ children }: { children: ReactNode }) {
         );
         setMessages(list);
       },
-      (err) => console.error('messages snapshot error', err)
+      (err) => {
+        // Si es permission-denied y todavía no estamos authed, no es error.
+        // Cuando el user se loguee, onAuthStateChanged re-renderiza y reintenta.
+        if (err?.code === 'permission-denied') return;
+        console.warn('messages snapshot error:', err?.code, err?.message);
+      }
     );
     return () => unsub();
   }, []);
@@ -129,12 +143,13 @@ export function PetsProvider({ children }: { children: ReactNode }) {
   const addPet = useCallback(
     async (input: NewPetInput, owner: User): Promise<Pet> => {
       if (HAS_FIREBASE && db) {
-        const ref = await addDoc(collection(db, 'pets'), {
+        const data = stripUndefined({
           ...input,
           owner,
           ownerId: owner.id,
           createdAt: serverTimestamp(),
         });
+        const ref = await addDoc(collection(db, 'pets'), data);
         return {
           id: ref.id,
           ...input,
@@ -159,7 +174,7 @@ export function PetsProvider({ children }: { children: ReactNode }) {
   const updatePet = useCallback(
     async (id: string, patch: Partial<Pet>) => {
       if (HAS_FIREBASE && db) {
-        await updateDoc(doc(db, 'pets', id), patch);
+        await updateDoc(doc(db, 'pets', id), stripUndefined(patch));
         return;
       }
       setStoredPets((prev) =>

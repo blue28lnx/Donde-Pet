@@ -100,25 +100,38 @@ export function ReportForm({
     }
 
     if (isEdit && editPet) {
-      updatePet(editPet.id, {
-        name,
-        type,
-        breed,
-        status,
-        photo,
-        dateTime,
-        description,
-        contact: contact || undefined,
-        lat: coords.lat,
-        lng: coords.lng,
-        resolvedAt:
-          status === 'found' ? editPet.resolvedAt ?? Date.now() : undefined,
-      });
-      onSaved({ ...editPet, name, type, breed, status, photo, dateTime, description, contact, lat: coords.lat, lng: coords.lng });
+      try {
+        await updatePet(editPet.id, {
+          name,
+          type,
+          breed,
+          status,
+          photo,
+          dateTime,
+          description,
+          contact: contact || undefined,
+          lat: coords.lat,
+          lng: coords.lng,
+          resolvedAt:
+            status === 'found' ? editPet.resolvedAt ?? Date.now() : undefined,
+        });
+        onSaved({ ...editPet, name, type, breed, status, photo, dateTime, description, contact, lat: coords.lat, lng: coords.lng });
+      } catch (err: any) {
+        console.error('[Publish] error:', err);
+        const code = err?.code ?? '';
+        if (code.includes('permission') || code === 'permission-denied') {
+          setError('Permisos insuficientes. Verificá que estés autenticado y que las reglas de Firestore estén publicadas.');
+        } else if (code === 'unauthenticated') {
+          setError('Tu sesión expiró. Cerrá sesión y volvé a iniciar con Google.');
+        } else {
+          setError(`No se pudo guardar: ${err?.message ?? 'error desconocido'}`);
+        }
+      }
       return;
     }
 
-    const created = await addPet(
+    try {
+      const created = await addPet(
       {
         name,
         type,
@@ -138,7 +151,7 @@ export function ReportForm({
         avatar: user.avatar,
       }
     );
-    onSaved(created);
+      onSaved(created);
     } catch (err: any) {
       console.error('[Publish] error:', err);
       const code = err?.code ?? '';

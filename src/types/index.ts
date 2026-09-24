@@ -20,6 +20,7 @@ export interface Pet {
   dateTime: string; // ISO string
   description: string;
   owner: User;
+  ownerId?: string;
   contact?: string;
   createdAt: number;
   resolvedAt?: number;
