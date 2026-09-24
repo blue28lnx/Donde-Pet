@@ -139,6 +139,17 @@ export function ReportForm({
       }
     );
     onSaved(created);
+    } catch (err: any) {
+      console.error('[Publish] error:', err);
+      const code = err?.code ?? '';
+      if (code.includes('permission') || code === 'permission-denied') {
+        setError('Permisos insuficientes. Verificá que estés autenticado y que las reglas de Firestore estén publicadas.');
+      } else if (code === 'unauthenticated') {
+        setError('Tu sesión expiró. Cerrá sesión y volvé a iniciar con Google.');
+      } else {
+        setError(`No se pudo publicar: ${err?.message ?? 'error desconocido'}`);
+      }
+    }
   };
 
   const useMyLocation = () => {
