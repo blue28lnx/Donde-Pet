@@ -84,7 +84,7 @@ export function ReportForm({
     setPhotoError(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setError(null);
     if (!user) {
       setError('Necesitás iniciar sesión para publicar.');
@@ -118,7 +118,7 @@ export function ReportForm({
       return;
     }
 
-    const created = addPet(
+    const created = await addPet(
       {
         name,
         type,
