@@ -13,6 +13,7 @@ import type { AnimalType, Pet, PetStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { usePets } from '../context/PetsContext';
 import { STATUS_BG, STATUS_LABELS, TYPE_LABELS } from '../utils/format';
+import { compressImage } from '../utils/imageCompression';
 
 interface ReportFormProps {
   pendingLocation: { lat: number; lng: number } | null;
@@ -27,85 +28,6 @@ const PHOTO_SUGGESTIONS = [
   'https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=600&q=70',
   'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=600&q=70',
 ];
-
-const compressImage = (
-  file: File,
-  maxWidth = 1280,
-  maxHeight = 1280,
-  maxSizeKB = 600
-): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onerror = () => {
-      reject(new Error('No se pudo leer la imagen.'));
-    };
-
-    reader.onload = () => {
-      const img = new Image();
-
-      img.onerror = () => {
-        reject(new Error('No se pudo procesar la imagen.'));
-      };
-
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        // Reducir dimensiones manteniendo proporción
-        const scale = Math.min(
-          1,
-          maxWidth / width,
-          maxHeight / height
-        );
-
-        width = Math.round(width * scale);
-        height = Math.round(height * scale);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-
-        if (!ctx) {
-          reject(new Error('No se pudo crear el canvas.'));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Empezamos con buena calidad
-        let quality = 0.82;
-
-        const compress = () => {
-          const dataUrl = canvas.toDataURL('image/jpeg', quality);
-
-          // Calculamos aproximadamente el tamaño real del Base64
-          const base64 = dataUrl.split(',')[1];
-          const sizeBytes = Math.ceil((base64.length * 3) / 4);
-          const sizeKB = sizeBytes / 1024;
-
-          // Si entra dentro del límite, terminamos
-          if (sizeKB <= maxSizeKB || quality <= 0.4) {
-            resolve(dataUrl);
-            return;
-          }
-
-          // Bajamos calidad progresivamente
-          quality -= 0.08;
-          compress();
-        };
-
-        compress();
-      };
-
-      img.src = reader.result as string;
-    };
-
-    reader.readAsDataURL(file);
-  });
-};
 
 export function ReportForm({
   pendingLocation,
@@ -151,39 +73,49 @@ export function ReportForm({
 
   if (!file) return;
 
-  try {
-    setError(null);
-    setPhotoError(false);
+  setError(null);
+  setPhotoError(false);
 
-    // Verificar que realmente sea una imagen
-    if (!file.type.startsWith('image/')) {
-      throw new Error('El archivo seleccionado no es una imagen.');
+  try {
+    const result = await compressImage(file);
+
+    console.log('📷 Imagen original:', {
+      bytes: result.originalSize,
+      kb: Math.round(result.originalSize / 1024),
+      mb: (result.originalSize / 1024 / 1024).toFixed(2),
+    });
+
+    console.log('🗜️ Imagen comprimida:', {
+      bytes: result.compressedSize,
+      kb: Math.round(result.compressedSize / 1024),
+      mb: (result.compressedSize / 1024 / 1024).toFixed(2),
+    });
+
+    const MAX_SIZE = 900 * 1024;
+
+    if (result.compressedSize > MAX_SIZE) {
+      setPhotoFile(null);
+      setPhoto('');
+      setPhotoError(true);
+
+      setError(
+        'La imagen sigue siendo demasiado grande. Elegí otra foto.'
+      );
+
+      return;
     }
 
-    // Comprimir y convertir a JPEG
-    const compressedImage = await compressImage(file);
-
-    // Guardamos la imagen comprimida
-    setPhotoFile(compressedImage);
-
-    // La usamos también como preview
-    setPhoto(compressedImage);
-
-    console.log(
-      '[Image] Imagen comprimida:',
-      Math.round((compressedImage.length * 3) / 4 / 1024),
-      'KB aproximadamente'
-    );
+    setPhotoFile(result.dataUrl);
+    setPhoto(result.dataUrl);
   } catch (err) {
-    console.error('[Image] Error:', err);
+    console.error('Error comprimiendo imagen:', err);
 
     setPhotoFile(null);
+    setPhoto('');
     setPhotoError(true);
 
     setError(
-      err instanceof Error
-        ? err.message
-        : 'No se pudo procesar la imagen.'
+      'No se pudo procesar la imagen. Probá con otra foto.'
     );
   }
 };
