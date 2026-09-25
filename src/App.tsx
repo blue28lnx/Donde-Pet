@@ -155,7 +155,7 @@ function Shell() {
               (HAS_FIREBASE ? 'bg-emerald-500' : 'bg-slate-500')
             }
           />
-          {HAS_FIREBASE ? 'Firestore' : 'Solo local'}
+          {HAS_FIREBASE ? 'Conectado' : 'Solo local'}
         </div>
 
         <MapView

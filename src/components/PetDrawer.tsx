@@ -114,7 +114,7 @@ export function PetDrawer({ pet, onClose, onOpenChat, onEdit }: PetDrawerProps) 
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
-              <p className="label mb-1">Ubicación</p>
+              <p className="label mb-1">Comentarios</p>
               <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                 <MapPin className="h-3.5 w-3.5 text-brand-orange" />
                 <span className="truncate">
@@ -125,7 +125,7 @@ export function PetDrawer({ pet, onClose, onOpenChat, onEdit }: PetDrawerProps) 
                 onClick={() => onOpenChat(pet)}
                 className="mt-0.5 text-[11px] font-semibold text-brand-emerald hover:underline"
               >
-                Ver en el mapa →
+                Ver comentarios →
               </button>
             </div>
           </div>
