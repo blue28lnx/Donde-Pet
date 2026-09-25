@@ -28,6 +28,85 @@ const PHOTO_SUGGESTIONS = [
   'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=600&q=70',
 ];
 
+const compressImage = (
+  file: File,
+  maxWidth = 1280,
+  maxHeight = 1280,
+  maxSizeKB = 600
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error('No se pudo leer la imagen.'));
+    };
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onerror = () => {
+        reject(new Error('No se pudo procesar la imagen.'));
+      };
+
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        // Reducir dimensiones manteniendo proporción
+        const scale = Math.min(
+          1,
+          maxWidth / width,
+          maxHeight / height
+        );
+
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          reject(new Error('No se pudo crear el canvas.'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Empezamos con buena calidad
+        let quality = 0.82;
+
+        const compress = () => {
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+          // Calculamos aproximadamente el tamaño real del Base64
+          const base64 = dataUrl.split(',')[1];
+          const sizeBytes = Math.ceil((base64.length * 3) / 4);
+          const sizeKB = sizeBytes / 1024;
+
+          // Si entra dentro del límite, terminamos
+          if (sizeKB <= maxSizeKB || quality <= 0.4) {
+            resolve(dataUrl);
+            return;
+          }
+
+          // Bajamos calidad progresivamente
+          quality -= 0.08;
+          compress();
+        };
+
+        compress();
+      };
+
+      img.src = reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  });
+};
+
 export function ReportForm({
   pendingLocation,
   editPet,
@@ -65,18 +144,49 @@ export function ReportForm({
     };
   }, []);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setPhotoFile(result);
-      setPhoto(result); // preview inmediato
-      setPhotoError(false);
-    };
-    reader.readAsDataURL(file);
-  };
+  const handleFile = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+
+  if (!file) return;
+
+  try {
+    setError(null);
+    setPhotoError(false);
+
+    // Verificar que realmente sea una imagen
+    if (!file.type.startsWith('image/')) {
+      throw new Error('El archivo seleccionado no es una imagen.');
+    }
+
+    // Comprimir y convertir a JPEG
+    const compressedImage = await compressImage(file);
+
+    // Guardamos la imagen comprimida
+    setPhotoFile(compressedImage);
+
+    // La usamos también como preview
+    setPhoto(compressedImage);
+
+    console.log(
+      '[Image] Imagen comprimida:',
+      Math.round((compressedImage.length * 3) / 4 / 1024),
+      'KB aproximadamente'
+    );
+  } catch (err) {
+    console.error('[Image] Error:', err);
+
+    setPhotoFile(null);
+    setPhotoError(true);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : 'No se pudo procesar la imagen.'
+    );
+  }
+};
 
   const useMockPhoto = (url: string) => {
     setPhoto(url);
